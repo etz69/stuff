@@ -1,0 +1,82 @@
+
+cat /etc/centos-release
+CentOS Linux release 7.6.1810 (Core) 
+
+
+sudo yum erase rsyslog
+
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo rpm -Uvh epel-release-latest-7.noarch.rpm
+
+cd /etc/yum.repos.d/
+sudo wget https://copr.fedorainfracloud.org/coprs/czanik/syslog-ng324/repo/epel-7/czanik-syslog-ng324-epel-7.repo
+
+sudo yum install syslog-ng
+sudo systemctl enable syslog-ng
+sudo systemctl start syslog-ng
+sudo systemctl stop syslog-ng
+sudo systemctl restart syslog-ng
+
+
+sudo vi /etc/syslog-ng/syslog-ng.conf 
+1.Change the format version to current
+2.Load custom config
+
+Optional: sudo yum install syslog-ng-http
+
+crontab -e 
+0 */2 * * * /usr/bin/find /opt/logs/* -name *.log -type f -mmin +180 -delete 
+
+
+Troubleshooting
+---
+sudo syslog-ng -de
+sudo tcpdump -A -i eth0 port 514
+
+
+Simplified Syslog config 
+@version:3.24
+@include "scl.conf"
+
+# syslog-ng configuration file.
+#
+# This should behave pretty much like the original syslog on RedHat. But
+# it could be configured a lot smarter.
+#
+# See syslog-ng(8) and syslog-ng.conf(5) for more information.
+#
+# Note: it also sources additional configuration files (*.conf)
+#   
+
+# syslog-ng configuration file.
+#
+#
+options {
+chain_hostnames(no);
+create_dirs (yes);
+dir_perm(0755);
+dns_cache(yes);
+keep_hostname(yes);
+log_fifo_size(100000);
+log_msg_size(8192);
+perm(0644);
+time_reopen (10);
+use_dns(yes);
+use_fqdn(yes);
+};
+
+# Sources
+# All sources with unique strings in the log events should go to 514. Only add source ports for logs that cannot be filtered using regular expressions
+source s_network {
+udp(port(514));
+};
+
+
+
+#Destinations
+
+destination d_all { file("/opt/logs/catch_all/$HOST/$YEAR-$MONTH-$DAY-catch_all.log" create_dirs(yes)); };
+
+# Log
+
+log { source(s_network); destination(d_all); };
